@@ -55,6 +55,8 @@ EAPI Eina_Bool wayland_im_context_filter_event  (Ecore_IMF_Context    *ctx,
 
 WaylandIMContext *wayland_im_context_new        (struct text_model_factory *text_model_factory);
 
+extern int _ecore_imf_wayland_log_dom;
+
 #endif
 
 /* vim:ts=8 sw=3 sts=3 expandtab cino=>5n-3f0^-2{2(0W1st0

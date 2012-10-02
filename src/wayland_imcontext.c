@@ -240,7 +240,7 @@ wayland_im_context_focus_in(Ecore_IMF_Context *ctx)
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
 
-   LOGFN(__FILE__, __LINE__, __FUNCTION__);
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "focus-in");
 
    if (!imcontext->window)
      return;
@@ -255,7 +255,7 @@ wayland_im_context_focus_out(Ecore_IMF_Context *ctx)
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
 
-   LOGFN(__FILE__, __LINE__, __FUNCTION__);
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "focus-out");
 
    if (!imcontext->window)
      return;
@@ -271,7 +271,7 @@ wayland_im_context_preedit_string_get(Ecore_IMF_Context  *ctx,
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
 
-   LOGFN(__FILE__, __LINE__, __FUNCTION__);
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "pre-edit string requested");
 
    if (str)
      *str = strdup(imcontext->preedit_text ? imcontext->preedit_text : "");
@@ -285,7 +285,7 @@ wayland_im_context_preedit_string_with_attributes_get(Ecore_IMF_Context  *ctx,
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
 
-   LOGFN(__FILE__, __LINE__, __FUNCTION__);
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "pre-edit string with attributes requested");
 
    if (str)
      *str = strdup(imcontext->preedit_text ? imcontext->preedit_text : "");
@@ -298,7 +298,7 @@ wayland_im_context_cursor_position_set(Ecore_IMF_Context *ctx,
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
    char *text;
 
-   LOGFN(__FILE__, __LINE__, __FUNCTION__);
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "cursor position updated");
 
    if (ecore_imf_context_surrounding_get(imcontext->ctx, &text, NULL))
      {
@@ -322,7 +322,7 @@ wayland_im_context_client_window_set(Ecore_IMF_Context *ctx,
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
 
-   LOGFN(__FILE__, __LINE__, __FUNCTION__);
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "client window set");
 
    if (window != NULL)
      imcontext->window = ecore_wl_window_find((Ecore_Window)window);
@@ -332,7 +332,7 @@ EAPI void
 wayland_im_context_client_canvas_set(Ecore_IMF_Context *ctx,
                                      void              *canvas)
 {
-   LOGFN(__FILE__, __LINE__, __FUNCTION__);
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "client canvas set");
 }
 
 EAPI Eina_Bool
@@ -347,7 +347,7 @@ WaylandIMContext *wayland_im_context_new (struct text_model_factory *text_model_
 {
    WaylandIMContext *context = calloc(1, sizeof(WaylandIMContext));
 
-   LOGFN(__FILE__, __LINE__, __FUNCTION__);
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "nwe context created");
    context->text_model_factory = text_model_factory;
 
    return context;

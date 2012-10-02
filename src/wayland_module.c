@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include "text-client-protocol.h"
 
+int _ecore_imf_wayland_log_dom = -1;
+
 static const Ecore_IMF_Context_Info wayland_im_info = {
      "wayland",
      "Wayland",
@@ -93,14 +95,18 @@ static Eina_Bool
 im_module_init(void)
 {
    ecore_wl_init(NULL);
+   _ecore_imf_wayland_log_dom = eina_log_domain_register("ecore_imf_wayland", EINA_COLOR_BLUE);
    wl_display_add_global_listener(ecore_wl_display_get(), global_handler, NULL);
    ecore_imf_module_register(&wayland_im_info, im_module_create, im_module_exit);
+
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "im module initalized");
 
    return EINA_TRUE;
 }
 
 static void im_module_shutdown(void)
 {
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "im module shutdown");
 }
 
 static Ecore_IMF_Context *
