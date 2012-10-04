@@ -50,6 +50,11 @@ text_model_commit_string(void              *data,
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)data;
 
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom,
+                     "commit event (text: `%s', current pre-edit: `%s')",
+                     text,
+                     imcontext->preedit_text ? imcontext->preedit_text : "");
+
    if (imcontext->ctx)
      {
         ecore_imf_context_commit_event_add(imcontext->ctx, text);
@@ -67,7 +72,12 @@ text_model_preedit_string(void              *data,
 
    Eina_Bool old_preedit = EINA_FALSE;
 
-   if (imcontext->preedit_text)
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom,
+                     "preedit event (text: `%s', current pre-edit: `%s')",
+                     text,
+                     imcontext->preedit_text ? imcontext->preedit_text : "");
+
+    if (imcontext->preedit_text)
      {
         old_preedit = strlen(imcontext->preedit_text) > 0;
         free(imcontext->preedit_text);
@@ -99,6 +109,11 @@ text_model_delete_surrounding_text(void              *data,
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)data;
    Ecore_IMF_Event_Delete_Surrounding ev;
+
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom,
+                     "delete surrounding text (index: %d, length: %u)",
+                     index,
+                     length);
 
    ev.ctx = imcontext->ctx;
    ev.offset = index;
@@ -134,6 +149,10 @@ text_model_key(void              *data,
 
    memset(string, 0, sizeof(string));
    xkb_keysym_to_utf8(sym, string, 32);
+
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom,
+                     "key event (key: %s)",
+                     keyname);
 
    e = malloc(sizeof(Ecore_Event_Key) + strlen(key) + strlen(keyname) + strlen(string) + 3);
    if (!e) return;
@@ -271,7 +290,9 @@ wayland_im_context_preedit_string_get(Ecore_IMF_Context  *ctx,
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
 
-   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "pre-edit string requested");
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom,
+                     "pre-edit string requested (preedit: `%s')",
+                     imcontext->preedit_text ? imcontext->preedit_text : "");
 
    if (str)
      *str = strdup(imcontext->preedit_text ? imcontext->preedit_text : "");
@@ -285,7 +306,9 @@ wayland_im_context_preedit_string_with_attributes_get(Ecore_IMF_Context  *ctx,
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
 
-   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "pre-edit string with attributes requested");
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom,
+                     "pre-edit string with attributes requested (preedit: `%s')",
+                     imcontext->preedit_text ? imcontext->preedit_text : "");
 
    if (str)
      *str = strdup(imcontext->preedit_text ? imcontext->preedit_text : "");
@@ -298,7 +321,9 @@ wayland_im_context_cursor_position_set(Ecore_IMF_Context *ctx,
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
    char *text;
 
-   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "cursor position updated");
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom,
+                     "set cursor position (cursor: %d)",
+                     cursor_pos);
 
    if (ecore_imf_context_surrounding_get(imcontext->ctx, &text, NULL))
      {
@@ -322,7 +347,7 @@ wayland_im_context_client_window_set(Ecore_IMF_Context *ctx,
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
 
-   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "client window set");
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "client window set (window: %p)", window);
 
    if (window != NULL)
      imcontext->window = ecore_wl_window_find((Ecore_Window)window);
@@ -347,7 +372,7 @@ WaylandIMContext *wayland_im_context_new (struct text_model_factory *text_model_
 {
    WaylandIMContext *context = calloc(1, sizeof(WaylandIMContext));
 
-   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "nwe context created");
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "new context created");
    context->text_model_factory = text_model_factory;
 
    return context;
