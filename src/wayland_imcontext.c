@@ -168,8 +168,8 @@ text_model_key(void              *data,
 
    e->window = imcontext->window->id;
    e->event_window = imcontext->window->id;
-   // e->timestamp = timestamp;
-   // e->modifiers = input->modifiers;
+   e->timestamp = -1; /* TODO add timestamp to protocol */
+   e->modifiers = 0; /* TODO add modifiers to protocol */
 
    if (state)
      ecore_event_add(ECORE_EVENT_KEY_DOWN, e, NULL, NULL);
