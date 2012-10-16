@@ -209,6 +209,18 @@ static void
 text_model_leave(void              *data,
                  struct text_model *text_model)
 {
+   WaylandIMContext *imcontext = (WaylandIMContext *)data;
+
+   /* clear preedit */
+   imcontext->preedit_cursor_pos = 0;
+   free(imcontext->preedit_text);
+   imcontext->preedit_text = NULL;
+
+   ecore_imf_context_preedit_changed_event_add(imcontext->ctx);
+   ecore_imf_context_event_callback_call(imcontext->ctx, ECORE_IMF_CALLBACK_PREEDIT_CHANGED, NULL);
+
+   ecore_imf_context_preedit_end_event_add(imcontext->ctx);
+   ecore_imf_context_event_callback_call(imcontext->ctx, ECORE_IMF_CALLBACK_PREEDIT_END, NULL);
 }
 
 static const struct text_model_listener text_model_listener = {
@@ -242,17 +254,19 @@ wayland_im_context_del(Ecore_IMF_Context *ctx)
 
    text_model_destroy(imcontext->text_model);
 
-   if (imcontext->preedit_text)
-     {
-        free(imcontext->preedit_text);
-        imcontext->preedit_text = NULL;
-     }
+   free(imcontext->preedit_text);
+   imcontext->preedit_text = NULL;
 }
 
 EAPI void
 wayland_im_context_reset (Ecore_IMF_Context *ctx)
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
+
+   free(imcontext->preedit_text);
+   imcontext->preedit_text = NULL;
+
+   imcontext->preedit_cursor_pos = 0;
 
    text_model_reset(imcontext->text_model);
 }
