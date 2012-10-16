@@ -40,6 +40,7 @@ struct _WaylandIMContext
    Ecore_Wl_Window *window;
 
    char *preedit_text;
+   int preedit_cursor_pos;
 };
 
 static void
@@ -73,9 +74,10 @@ text_model_preedit_string(void              *data,
    Eina_Bool old_preedit = EINA_FALSE;
 
    EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom,
-                     "preedit event (text: `%s', current pre-edit: `%s')",
-                     text,
-                     imcontext->preedit_text ? imcontext->preedit_text : "");
+                     "preedit event (text: `%s' index: %u, current pre-edit: `%s' index: %d)",
+                     text, index,
+                     imcontext->preedit_text ? imcontext->preedit_text : "",
+                     imcontext->preedit_cursor_pos);
 
     if (imcontext->preedit_text)
      {
@@ -84,6 +86,7 @@ text_model_preedit_string(void              *data,
      }
 
    imcontext->preedit_text = strdup(text);
+   imcontext->preedit_cursor_pos = index;
 
    if (!old_preedit)
      {
@@ -296,6 +299,9 @@ wayland_im_context_preedit_string_get(Ecore_IMF_Context  *ctx,
 
    if (str)
      *str = strdup(imcontext->preedit_text ? imcontext->preedit_text : "");
+
+   if (cursor_pos)
+     *cursor_pos = imcontext->preedit_cursor_pos;
 }
 
 EAPI void
@@ -312,6 +318,12 @@ wayland_im_context_preedit_string_with_attributes_get(Ecore_IMF_Context  *ctx,
 
    if (str)
      *str = strdup(imcontext->preedit_text ? imcontext->preedit_text : "");
+
+   if (attr)
+     *attr = NULL;
+
+   if (cursor_pos)
+     *cursor_pos = imcontext->preedit_cursor_pos;
 }
 
 EAPI void
