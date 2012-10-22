@@ -81,22 +81,35 @@ static Ecore_IMF_Context *im_module_exit (void);
 static struct text_model_factory *text_model_factory = NULL;
 
 static void
-global_handler(struct wl_display *display, uint32_t id,
-               const char *interface, uint32_t version, void *data)
+handle_global(void *data, struct wl_registry *registry, uint32_t name,
+              const char *interface, uint32_t version)
 {
+   EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "registry handle_global interface: %s", interface);
+
    if (!strcmp(interface, "text_model_factory"))
      {
-        text_model_factory = wl_display_bind(display, id,
-                                             &text_model_factory_interface);
+        text_model_factory = wl_registry_bind(registry, name,
+                                              &text_model_factory_interface, 1);
      }
 }
+
+static const struct wl_registry_listener registry_listener = {
+	handle_global
+};
 
 static Eina_Bool
 im_module_init(void)
 {
+   struct wl_display *display;
+   struct wl_registry *registry;
+
    ecore_wl_init(NULL);
    _ecore_imf_wayland_log_dom = eina_log_domain_register("ecore_imf_wayland", EINA_COLOR_BLUE);
-   wl_display_add_global_listener(ecore_wl_display_get(), global_handler, NULL);
+   display = ecore_wl_display_get();
+   registry = wl_display_get_registry(display);
+   wl_registry_add_listener(registry, &registry_listener, NULL);
+   wl_display_dispatch(display);
+   wl_display_roundtrip(display);
    ecore_imf_module_register(&wayland_im_info, im_module_create, im_module_exit);
 
    EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom, "im module initalized");
