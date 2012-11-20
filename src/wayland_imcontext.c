@@ -41,6 +41,10 @@ struct _WaylandIMContext
 
    char *preedit_text;
    int preedit_cursor_pos;
+
+   xkb_mod_mask_t control_mask;
+   xkb_mod_mask_t alt_mask;
+   xkb_mod_mask_t shift_mask;
 };
 
 static void
@@ -132,11 +136,55 @@ text_model_preedit_styling(void *data,
 {
 }
 
+static xkb_mod_index_t
+modifiers_get_index(struct wl_array *modifiers_map,
+                    const char *name)
+{
+	xkb_mod_index_t index = 0;
+	char *p = modifiers_map->data;
+
+	while ((const char *)p < (const char *)(modifiers_map->data + modifiers_map->size)) {
+		if (strcmp(p, name) == 0)
+			return index;
+
+		index++;
+		p += strlen(p) + 1;
+	}
+
+	return XKB_MOD_INVALID;
+}
+
+static xkb_mod_mask_t
+modifiers_get_mask(struct wl_array *modifiers_map,
+                   const char *name)
+{
+	xkb_mod_index_t index = modifiers_get_index(modifiers_map, name);
+
+	if (index == XKB_MOD_INVALID)
+		return XKB_MOD_INVALID;
+
+	return 1 << index;
+}
 static void
-text_model_key(void              *data,
-               struct text_model *text_model,
-               uint32_t           sym,
-               uint32_t           state)
+text_model_modifiers_map(void *data,
+			 struct text_model *text_model,
+			 struct wl_array *map)
+{
+   WaylandIMContext *imcontext = (WaylandIMContext *)data;
+
+   imcontext->shift_mask = modifiers_get_mask(map, "Shift");
+   imcontext->control_mask = modifiers_get_mask(map, "Control");
+   imcontext->alt_mask = modifiers_get_mask(map, "Mod1");
+}
+
+static void
+text_model_keysym(void              *data,
+                  struct text_model *text_model,
+                  uint32_t           serial,
+		  uint32_t           time,
+                  uint32_t           sym,
+                  uint32_t           state,
+                  uint32_t           modifiers)
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)data;
    char string[32], key[32], keyname[32];
@@ -171,8 +219,15 @@ text_model_key(void              *data,
 
    e->window = imcontext->window->id;
    e->event_window = imcontext->window->id;
-   e->timestamp = -1; /* TODO add timestamp to protocol */
-   e->modifiers = 0; /* TODO add modifiers to protocol */
+   e->timestamp = time;
+
+   e->modifiers = 0;
+   if (modifiers & imcontext->shift_mask)
+     e->modifiers |= ECORE_EVENT_MODIFIER_SHIFT;
+   if (modifiers & imcontext->control_mask)
+     e->modifiers |= ECORE_EVENT_MODIFIER_CTRL;
+   if (modifiers & imcontext->alt_mask)
+     e->modifiers |= ECORE_EVENT_MODIFIER_ALT;
 
    if (state)
      ecore_event_add(ECORE_EVENT_KEY_DOWN, e, NULL, NULL);
@@ -228,7 +283,8 @@ static const struct text_model_listener text_model_listener = {
      text_model_preedit_string,
      text_model_delete_surrounding_text,
      text_model_preedit_styling,
-     text_model_key,
+     text_model_modifiers_map,
+     text_model_keysym,
      text_model_selection_replacement,
      text_model_direction,
      text_model_locale,
