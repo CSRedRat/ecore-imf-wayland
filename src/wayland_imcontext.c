@@ -40,16 +40,27 @@ struct _WaylandIMContext
    Ecore_Wl_Window *window;
 
    char *preedit_text;
-   int preedit_cursor_pos;
+   char *preedit_commit;
+   Eina_List *preedit_attrs;
+   int32_t preedit_cursor;
+
+   struct
+     {
+        Eina_List *attrs;
+        int32_t cursor;
+     } preedit_info;
 
    xkb_mod_mask_t control_mask;
    xkb_mod_mask_t alt_mask;
    xkb_mod_mask_t shift_mask;
+
+   uint32_t serial;
 };
 
 static void
 text_model_commit_string(void              *data,
                          struct text_model *text_model,
+			 uint32_t           serial,
                          const char        *text,
                          uint32_t           index)
 {
@@ -68,29 +79,62 @@ text_model_commit_string(void              *data,
 }
 
 static void
+commit_preedit(WaylandIMContext *imcontext)
+{
+   if (!imcontext->preedit_commit)
+     return;
+
+   if (imcontext->ctx)
+     {
+        ecore_imf_context_commit_event_add(imcontext->ctx, imcontext->preedit_commit);
+        ecore_imf_context_event_callback_call(imcontext->ctx, ECORE_IMF_CALLBACK_COMMIT, (void *)imcontext->preedit_commit);
+     }
+}
+
+static void
+clear_preedit(WaylandIMContext *imcontext)
+{
+   Ecore_IMF_Preedit_Attr *attr;
+
+   imcontext->preedit_cursor = 0;
+
+   free(imcontext->preedit_text);
+   imcontext->preedit_text = NULL;
+
+   free(imcontext->preedit_commit);
+   imcontext->preedit_commit = NULL;
+
+   EINA_LIST_FREE(imcontext->preedit_attrs, attr)
+      free(attr);
+   imcontext->preedit_attrs = NULL;
+}
+
+static void
 text_model_preedit_string(void              *data,
                           struct text_model *text_model,
+                          uint32_t           serial,
                           const char        *text,
-                          uint32_t           index)
+                          const char        *commit)
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)data;
-
    Eina_Bool old_preedit = EINA_FALSE;
 
    EINA_LOG_DOM_INFO(_ecore_imf_wayland_log_dom,
                      "preedit event (text: `%s' index: %u, current pre-edit: `%s' index: %d)",
                      text, index,
                      imcontext->preedit_text ? imcontext->preedit_text : "",
-                     imcontext->preedit_cursor_pos);
+                     imcontext->preedit_cursor);
 
-    if (imcontext->preedit_text)
-     {
-        old_preedit = strlen(imcontext->preedit_text) > 0;
-        free(imcontext->preedit_text);
-     }
+   old_preedit = imcontext->preedit_text && strlen(imcontext->preedit_text) > 0;
+
+   clear_preedit(imcontext);
 
    imcontext->preedit_text = strdup(text);
-   imcontext->preedit_cursor_pos = index;
+   imcontext->preedit_commit = strdup(commit);
+   imcontext->preedit_cursor = imcontext->preedit_info.cursor;
+   imcontext->preedit_attrs = imcontext->preedit_info.attrs;
+
+   imcontext->preedit_info.attrs = NULL;
 
    if (!old_preedit)
      {
@@ -111,6 +155,7 @@ text_model_preedit_string(void              *data,
 static void
 text_model_delete_surrounding_text(void              *data,
                                    struct text_model *text_model,
+                                   uint32_t           serial,
                                    int32_t            index,
                                    uint32_t           length)
 {
@@ -131,9 +176,47 @@ text_model_delete_surrounding_text(void              *data,
 }
 
 static void
-text_model_preedit_styling(void *data,
-                           struct text_model *text_model)
+text_model_preedit_styling(void              *data,
+			   struct text_model *text_model,
+			   uint32_t           serial,
+			   uint32_t           index,
+			   uint32_t           length,
+			   uint32_t           style)
 {
+   WaylandIMContext *imcontext = (WaylandIMContext *)data;
+   Ecore_IMF_Preedit_Attr *attr;
+
+   attr = calloc(1, sizeof(*attr));
+
+   switch (style) {
+      case TEXT_MODEL_PREEDIT_STYLE_DEFAULT:
+      case TEXT_MODEL_PREEDIT_STYLE_UNDERLINE:
+      case TEXT_MODEL_PREEDIT_STYLE_INCORRECT:
+      case TEXT_MODEL_PREEDIT_STYLE_HIGHLIGHT:
+      case TEXT_MODEL_PREEDIT_STYLE_ACTIVE:
+      case TEXT_MODEL_PREEDIT_STYLE_INACTIVE:
+         attr->preedit_type = ECORE_IMF_PREEDIT_TYPE_SUB1;
+         break;
+      case TEXT_MODEL_PREEDIT_STYLE_SELECTION:
+         attr->preedit_type = ECORE_IMF_PREEDIT_TYPE_SUB2;
+         break;
+   }
+
+   attr->start_index = index;
+   attr->end_index = index + length;
+
+   imcontext->preedit_info.attrs = eina_list_append(imcontext->preedit_info.attrs, attr);
+}
+
+static void
+text_model_preedit_cursor(void              *data,
+			  struct text_model *text_model,
+			  uint32_t           serial,
+			  int32_t            index)
+{
+   WaylandIMContext *imcontext = (WaylandIMContext *)data;
+
+   imcontext->preedit_info.cursor = index;
 }
 
 static xkb_mod_index_t
@@ -267,9 +350,8 @@ text_model_leave(void              *data,
    WaylandIMContext *imcontext = (WaylandIMContext *)data;
 
    /* clear preedit */
-   imcontext->preedit_cursor_pos = 0;
-   free(imcontext->preedit_text);
-   imcontext->preedit_text = NULL;
+   commit_preedit(imcontext);
+   clear_preedit(imcontext);
 
    ecore_imf_context_preedit_changed_event_add(imcontext->ctx);
    ecore_imf_context_event_callback_call(imcontext->ctx, ECORE_IMF_CALLBACK_PREEDIT_CHANGED, NULL);
@@ -283,6 +365,7 @@ static const struct text_model_listener text_model_listener = {
      text_model_preedit_string,
      text_model_delete_surrounding_text,
      text_model_preedit_styling,
+     text_model_preedit_cursor,
      text_model_modifiers_map,
      text_model_keysym,
      text_model_selection_replacement,
@@ -310,8 +393,7 @@ wayland_im_context_del(Ecore_IMF_Context *ctx)
 
    text_model_destroy(imcontext->text_model);
 
-   free(imcontext->preedit_text);
-   imcontext->preedit_text = NULL;
+   clear_preedit(imcontext);
 }
 
 EAPI void
@@ -319,12 +401,10 @@ wayland_im_context_reset (Ecore_IMF_Context *ctx)
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
 
-   free(imcontext->preedit_text);
-   imcontext->preedit_text = NULL;
+   commit_preedit(imcontext);
+   clear_preedit(imcontext);
 
-   imcontext->preedit_cursor_pos = 0;
-
-   text_model_reset(imcontext->text_model);
+   text_model_reset(imcontext->text_model, imcontext->serial);
 }
 
 EAPI void
@@ -338,6 +418,7 @@ wayland_im_context_focus_in(Ecore_IMF_Context *ctx)
      return;
 
    text_model_activate(imcontext->text_model,
+                       imcontext->serial,
                        imcontext->window->display->input->seat,
                        ecore_wl_window_surface_get(imcontext->window));
 }
@@ -371,13 +452,13 @@ wayland_im_context_preedit_string_get(Ecore_IMF_Context  *ctx,
      *str = strdup(imcontext->preedit_text ? imcontext->preedit_text : "");
 
    if (cursor_pos)
-     *cursor_pos = imcontext->preedit_cursor_pos;
+     *cursor_pos = imcontext->preedit_cursor;
 }
 
 EAPI void
 wayland_im_context_preedit_string_with_attributes_get(Ecore_IMF_Context  *ctx,
                                                       char              **str,
-                                                      Eina_List         **attr,
+                                                      Eina_List         **attrs,
                                                       int                *cursor_pos)
 {
    WaylandIMContext *imcontext = (WaylandIMContext *)ecore_imf_context_data_get(ctx);
@@ -389,11 +470,21 @@ wayland_im_context_preedit_string_with_attributes_get(Ecore_IMF_Context  *ctx,
    if (str)
      *str = strdup(imcontext->preedit_text ? imcontext->preedit_text : "");
 
-   if (attr)
-     *attr = NULL;
+   if (attrs)
+     {
+        Eina_List *l;
+        Ecore_IMF_Preedit_Attr *a, *attr;
+
+        EINA_LIST_FOREACH(imcontext->preedit_attrs, l, a)
+          {
+             attr = malloc(sizeof(*attr));
+             attr = memcpy(attr, a, sizeof(*attr));
+             *attrs = eina_list_append(*attrs, attr);
+          }
+     }
 
    if (cursor_pos)
-     *cursor_pos = imcontext->preedit_cursor_pos;
+     *cursor_pos = imcontext->preedit_cursor;
 }
 
 EAPI void
